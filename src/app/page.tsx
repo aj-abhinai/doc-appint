@@ -105,58 +105,60 @@ export default function LandingPage() {
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-3">Secure & Reliable</h3>
             <p className="text-gray-600">
-              Your data is safe with us. HIPAA compliant and secure infrastructure.
+              Your data is safe with us. Protected by secure infrastructure.
             </p>
           </div>
         </div>
 
         {/* Pricing Preview */}
-        <div className="text-center mb-20">
-          <h3 className="text-3xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h3>
-          <p className="text-gray-600 mb-8">Start free, upgrade when you&apos;re ready</p>
-          
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            {/* Free Tier */}
-            <div className="bg-white rounded-xl p-8 border-2 border-gray-100 shadow-sm">
-              <h4 className="text-xl font-bold text-gray-900 mb-2">Free</h4>
-              <p className="text-3xl font-bold text-[#db2777] mb-4">₹0<span className="text-sm text-gray-500">/month</span></p>
-              <ul className="text-gray-600 space-y-2 mb-6">
-                <li>✓ 2 hours of slots per day</li>
-                <li>✓ Basic booking page</li>
-                <li>✓ Email confirmations</li>
-                <li>✓ 1 month free trial</li>
-              </ul>
-            </div>
+<div className="text-center mb-20">
+  <h3 className="text-3xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h3>
+  <p className="text-gray-600 mb-8">We&apos;re in launch mode — all plans are currently free!</p>
+  
+  <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+    {/* Free Tier */}
+    <div className="bg-white rounded-xl p-8 border-2 border-gray-100 shadow-sm">
+      <h4 className="text-xl font-bold text-gray-900 mb-2">Free</h4>
+      <p className="text-3xl font-bold text-[#db2777] mb-1">₹0<span className="text-sm text-gray-500">/month </span></p>
+      <p className="text-sm text-gray-500 mb-4">Always free for all users.</p>
+      <ul className="text-gray-600 space-y-2 mb-6">
+        <li>✓ 2 hours of slots per day</li>
+        <li>✓ Basic booking page</li>
+        <li>✓ Email confirmations</li>
+        <li>✓ 1 month free trial</li>
+      </ul>
+    </div>
 
-            {/* Basic Tier */}
-            <div className="bg-white rounded-xl p-8 border-2 border-[#db2777] shadow-lg relative">
-              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#db2777] text-white px-4 py-1 rounded-full text-sm font-medium">
-                Most Popular
-              </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-2">Basic</h4>
-              <p className="text-3xl font-bold text-[#db2777] mb-4">₹499<span className="text-sm text-gray-500">/month</span></p>
-              <ul className="text-gray-600 space-y-2 mb-6">
-                <li>✓ Unlimited daily slots</li>
-                <li>✓ Email confirmations</li>
-                <li>✓ Basic dashboard</li>
-                <li>✓ Email support</li>
-              </ul>
-            </div>
+    {/* Basic Tier */}
+    <div className="bg-white rounded-xl p-8 border-2 border-[#db2777] shadow-lg relative">
+      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-[#db2777] text-white px-4 py-1 rounded-full text-sm font-medium">
+        Most Popular
+      </div>
+      <h4 className="text-xl font-bold text-gray-900 mb-2">Basic</h4>
+      <p className="text-3xl font-bold text-[#db2777] mb-1">₹0<span className="text-sm text-gray-500">/month (Launch Offer)</span></p>
+      <p className="text-sm text-gray-500 mb-4">Currently free for all users during launch.</p>
+      <ul className="text-gray-600 space-y-2 mb-6">
+        <li>✓ Unlimited daily slots</li>
+        <li>✓ Email confirmations</li>
+        <li>✓ Basic dashboard</li>
+        <li>✓ Email support</li>
+      </ul>
+    </div>
 
-            {/* Pro Tier */}
-            <div className="bg-white rounded-xl p-8 border-2 border-gray-100 shadow-sm">
-              <h4 className="text-xl font-bold text-gray-900 mb-2">Pro</h4>
-              <p className="text-3xl font-bold text-[#db2777] mb-4">₹999<span className="text-sm text-gray-500">/month</span></p>
-              <ul className="text-gray-600 space-y-2 mb-6">
-                <li>✓ Everything in Basic</li>
-                <li>✓ Google Calendar sync</li>
-                <li>✓ SMS reminders</li>
-                <li>✓ Advanced analytics</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
+    {/* Pro Tier */}
+    <div className="bg-white rounded-xl p-8 border-2 border-gray-100 shadow-sm">
+      <h4 className="text-xl font-bold text-gray-900 mb-2">Pro</h4>
+      <p className="text-3xl font-bold text-[#db2777] mb-1">₹0<span className="text-sm text-gray-500">/month (Launch Offer)</span></p>
+      <p className="text-sm text-gray-500 mb-4">Currently free for all users during launch.</p>
+      <ul className="text-gray-600 space-y-2 mb-6">
+        <li>✓ Everything in Basic</li>
+        <li>✓ Google Calendar sync</li>
+        <li>✓ SMS reminders</li>
+        <li>✓ Advanced analytics</li>
+      </ul>
+    </div>
+  </div>
+</div>
         {/* CTA Section */}
         <div className="text-center bg-[#db2777] rounded-2xl p-12 text-white">
           <h3 className="text-3xl font-bold mb-4">Ready to Get Started?</h3>
@@ -176,6 +178,10 @@ export default function LandingPage() {
       <footer className="container mx-auto px-4 py-8 border-t border-gray-200 mt-20">
         <div className="text-center text-gray-600">
           <p>&copy; 2025 Quick Slot. Made with ❤️ for doctors who care.</p>
+          <p className="text-xs text-gray-300 mt-2">
+  Built with curiosity — <a href="https://aj-abhinai.github.io/inverted-dodo.github.io/" target="_blank" rel="noopener noreferrer" className="hover:underline">Inverted Dodo</a>
+</p>
+
         </div>
       </footer>
     </div>

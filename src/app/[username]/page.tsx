@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Calendar, Clock, User, Phone, MapPin, Star, CheckCircle } from 'lucide-react'
+import { Calendar, Clock, User, Phone, CheckCircle } from 'lucide-react'
 import { supabase, Doctor, TimeSlot } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,7 +41,15 @@ export default function PatientBookingPage() {
   const [isBooking, setIsBooking] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-  const [bookingDetails, setBookingDetails] = useState<any>(null)
+  const [bookingDetails, setBookingDetails] = useState<{
+    id: string
+    patient_name: string
+    patient_phone: string
+    doctor_name: string
+    doctor_specialty: string
+    formatted_date: string
+    formatted_time: string
+  } | null>(null)
 
   const form = useForm<BookingForm>({
     resolver: zodResolver(bookingSchema)
@@ -49,7 +57,10 @@ export default function PatientBookingPage() {
 
   useEffect(() => {
     if (username) {
-      fetchDoctorAndSlots()
+      const loadData = async () => {
+        await fetchDoctorAndSlots()
+      }
+      loadData()
     }
   }, [username])
 
@@ -58,6 +69,8 @@ export default function PatientBookingPage() {
       setIsLoading(true)
       setError('')
 
+      console.log('Looking for doctor with username:', username)
+
       // Fetch doctor by username
       const { data: doctorData, error: doctorError } = await supabase
         .from('doctors')
@@ -65,8 +78,11 @@ export default function PatientBookingPage() {
         .eq('username', username)
         .single()
 
+      console.log('Doctor query result:', { doctorData, doctorError })
+
       if (doctorError || !doctorData) {
-        setError('Doctor not found. Please check the URL.')
+        console.error('Doctor not found:', doctorError)
+        setError(`Doctor with username "${username}" not found. Please check the URL.`)
         setIsLoading(false)
         return
       }
@@ -272,37 +288,37 @@ export default function PatientBookingPage() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Doctor Profile */}
         <Card className="mb-8">
-          <CardContent className="p-8">
-            <div className="flex items-start space-x-6">
+          <CardContent className="p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row items-start space-y-4 sm:space-y-0 sm:space-x-6">
               <div className="w-20 h-20 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center flex-shrink-0">
                 <User className="w-10 h-10 text-white" />
               </div>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <div className="flex-1 text-center sm:text-left">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                   {doctor?.full_name || 'Doctor'}
                 </h1>
                 {doctor?.specialty && (
-                  <div className="flex items-center space-x-2 mb-3">
+                  <div className="flex items-center justify-center sm:justify-start space-x-2 mb-3">
                     <Badge variant="secondary" className="text-primary">
                       {doctor.specialty}
                     </Badge>
                   </div>
                 )}
                 {doctor?.phone && (
-                  <div className="flex items-center space-x-2 text-gray-600 mb-2">
+                  <div className="flex items-center justify-center sm:justify-start space-x-2 text-gray-600 mb-2">
                     <Phone className="w-4 h-4" />
-                    <span>{doctor.phone}</span>
+                    <span className="text-sm sm:text-base">{doctor.phone}</span>
                   </div>
                 )}
                 {doctor?.bio && (
-                  <p className="text-gray-600 mt-4 leading-relaxed">{doctor.bio}</p>
+                  <p className="text-gray-600 mt-4 leading-relaxed text-sm sm:text-base">{doctor.bio}</p>
                 )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
           {/* Available Slots */}
           <Card>
             <CardHeader>

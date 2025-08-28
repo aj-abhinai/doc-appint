@@ -4,11 +4,35 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Calendar, Clock, Users, Settings, Plus, ExternalLink } from 'lucide-react'
-import { supabase, Doctor, Appointment } from '@/lib/supabase'
+import { supabase, Doctor } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { PageLoading } from '@/components/loading'
+
+interface AppointmentWithSlot {
+  id: string
+  slot_id: string
+  doctor_id: string
+  patient_name: string
+  patient_phone: string
+  patient_email?: string
+  appointment_date: string
+  appointment_time: string
+  status: 'confirmed' | 'cancelled' | 'completed' | 'no_show'
+  patient_notes?: string
+  doctor_notes?: string
+  created_at: string
+  updated_at: string
+  time_slots?: {
+    slot_date: string
+    start_time: string
+    end_time: string
+  }
+}
 
 export default function DashboardPage() {
   const [doctor, setDoctor] = useState<Doctor | null>(null)
-  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [appointments, setAppointments] = useState<AppointmentWithSlot[]>([])
   const [stats, setStats] = useState({
     todayAppointments: 0,
     thisWeekAppointments: 0,
@@ -33,12 +57,45 @@ export default function DashboardPage() {
       
       setDoctor(doctorData)
 
-      // Fetch recent appointments
+      // Get today's date
+      const today = new Date().toISOString().split('T')[0]
+      
+      // Get start of this week (Sunday)
+      const startOfWeek = new Date()
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+      const weekStart = startOfWeek.toISOString().split('T')[0]
+
+      // Fetch today's appointments
+      const { data: todayAppointments } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('doctor_id', user.id)
+        .eq('appointment_date', today)
+        .eq('status', 'confirmed')
+
+      // Fetch this week's appointments
+      const { data: weekAppointments } = await supabase
+        .from('appointments')
+        .select('id')
+        .eq('doctor_id', user.id)
+        .gte('appointment_date', weekStart)
+        .eq('status', 'confirmed')
+
+      // Fetch available slots (future dates only)
+      const { data: availableSlots } = await supabase
+        .from('time_slots')
+        .select('id')
+        .eq('doctor_id', user.id)
+        .eq('is_available', true)
+        .eq('is_booked', false)
+        .gte('slot_date', today)
+
+      // Fetch recent appointments with slot details  
       const { data: appointmentData } = await supabase
         .from('appointments')
         .select(`
           *,
-          time_slot:time_slots(slot_date, start_time, end_time)
+          time_slots!inner(slot_date, start_time, end_time)
         `)
         .eq('doctor_id', user.id)
         .eq('status', 'confirmed')
@@ -47,11 +104,11 @@ export default function DashboardPage() {
 
       setAppointments(appointmentData || [])
 
-      // Calculate stats (dummy data for now)
+      // Set real stats
       setStats({
-        todayAppointments: 3,
-        thisWeekAppointments: 12,
-        totalSlots: 25
+        todayAppointments: todayAppointments?.length || 0,
+        thisWeekAppointments: weekAppointments?.length || 0,
+        totalSlots: availableSlots?.length || 0
       })
 
     } catch (error) {
@@ -65,14 +122,7 @@ export default function DashboardPage() {
   }
 
   if (!doctor) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#db2777] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    )
+    return <PageLoading text="Loading dashboard..." />
   }
 
   return (
@@ -83,7 +133,7 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-[#db2777] rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <Calendar className="w-5 h-5 text-white" />
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900">Quick Slot</h1>
@@ -96,7 +146,7 @@ export default function DashboardPage() {
             <div className="flex items-center space-x-4">
               <Link
                 href="/accounts"
-                className="flex items-center space-x-2 text-gray-600 hover:text-[#db2777] transition-colors"
+                className="flex items-center space-x-2 text-gray-600 hover:text-primary transition-colors"
               >
                 <Settings className="w-5 h-5" />
                 <span className="hidden md:inline">Settings</span>
@@ -149,8 +199,8 @@ export default function DashboardPage() {
 
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-[#db2777]/10 rounded-lg flex items-center justify-center">
-                <Clock className="w-6 h-6 text-[#db2777]" />
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                <Clock className="w-6 h-6 text-primary" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Available Slots</p>
@@ -166,9 +216,9 @@ export default function DashboardPage() {
             <div className="p-6 border-b border-gray-100">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Recent Appointments</h3>
-                <button className="text-[#db2777] hover:text-[#be185d] text-sm font-medium">
+                <Link href="/appointments" className="text-primary hover:text-primary/80 text-sm font-medium">
                   View All
-                </button>
+                </Link>
               </div>
             </div>
             <div className="p-6">
@@ -176,13 +226,29 @@ export default function DashboardPage() {
                 <div className="space-y-4">
                   {appointments.map((appointment) => (
                     <div key={appointment.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium text-gray-900">{appointment.patient_name}</p>
                         <p className="text-sm text-gray-600">{appointment.patient_phone}</p>
+                        {appointment.patient_notes && (
+                          <p className="text-xs text-gray-500 mt-1 italic">{appointment.patient_notes}</p>
+                        )}
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">{appointment.time_slot?.slot_date}</p>
-                        <p className="text-sm text-gray-600">{appointment.time_slot?.start_time}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {appointment.time_slots?.slot_date ? 
+                            new Date(appointment.time_slots.slot_date + 'T00:00:00').toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric'
+                            }) : 
+                            appointment.appointment_date
+                          }
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {appointment.time_slots?.start_time || appointment.appointment_time}
+                        </p>
+                        <Badge variant="secondary" className="mt-1 text-xs">
+                          {appointment.status}
+                        </Badge>
                       </div>
                     </div>
                   ))}
@@ -190,8 +256,11 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-center py-8">
                   <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No appointments yet</p>
+                  <p className="text-gray-500 mb-2">No appointments yet</p>
                   <p className="text-sm text-gray-400">Your recent bookings will appear here</p>
+                  <Button asChild variant="outline" className="mt-4">
+                    <Link href="/accounts">Create Time Slots</Link>
+                  </Button>
                 </div>
               )}
             </div>
@@ -205,18 +274,18 @@ export default function DashboardPage() {
             <div className="p-6 space-y-4">
               <Link
                 href="/accounts"
-                className="flex items-center justify-between p-4 bg-[#db2777]/5 rounded-lg hover:bg-[#db2777]/10 transition-colors group"
+                className="flex items-center justify-between p-4 bg-primary/5 rounded-lg hover:bg-primary/10 transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-[#db2777]/20 rounded-lg flex items-center justify-center">
-                    <Plus className="w-5 h-5 text-[#db2777]" />
+                  <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
+                    <Plus className="w-5 h-5 text-primary" />
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">Add Time Slots</p>
                     <p className="text-sm text-gray-600">Create new appointment slots</p>
                   </div>
                 </div>
-                <div className="text-[#db2777] group-hover:translate-x-1 transition-transform">→</div>
+                <div className="text-primary group-hover:translate-x-1 transition-transform">→</div>
               </Link>
 
               <Link

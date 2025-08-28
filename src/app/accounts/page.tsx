@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Calendar, User, Clock, Save, ArrowLeft, Plus, Trash2, Copy, Check } from 'lucide-react'
+import { Calendar, User, Clock, Save, ArrowLeft, Plus, Trash2, Copy, Check, RefreshCw } from 'lucide-react'
 import { supabase, Doctor, TimeSlot } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,42 +26,80 @@ const profileSchema = z.object({
 
 type ProfileForm = z.infer<typeof profileSchema>
 
-const timeSlotSchema = z.object({
-  date: z.string().min(1, 'Date is required'),
-  startTime: z.string().min(1, 'Start time is required'),
-  endTime: z.string().min(1, 'End time is required')
+const scheduleSchema = z.object({
+  name: z.string().min(1, 'Schedule name is required'),
+  start_time: z.string().min(1, 'Start time is required'),
+  end_time: z.string().min(1, 'End time is required'),
+  interval_minutes: z.number().min(5).max(30)
 })
 
-type TimeSlotForm = z.infer<typeof timeSlotSchema>
+type ScheduleForm = z.infer<typeof scheduleSchema>
+
+interface RecurringSchedule {
+  id: string
+  name: string
+  weekdays: number[]
+  start_time: string
+  end_time: string
+  interval_minutes: number
+  is_active: boolean
+  created_at: string
+}
+
+const WEEKDAYS = [
+  { value: 0, label: 'Sun', full: 'Sunday' },
+  { value: 1, label: 'Mon', full: 'Monday' },
+  { value: 2, label: 'Tue', full: 'Tuesday' },
+  { value: 3, label: 'Wed', full: 'Wednesday' },
+  { value: 4, label: 'Thu', full: 'Thursday' },
+  { value: 5, label: 'Fri', full: 'Friday' },
+  { value: 6, label: 'Sat', full: 'Saturday' }
+]
+
+const INTERVAL_OPTIONS = [
+  { value: 5, label: '5 minutes' },
+  { value: 10, label: '10 minutes' },
+  { value: 15, label: '15 minutes' },
+  { value: 20, label: '20 minutes' },
+  { value: 25, label: '25 minutes' },
+  { value: 30, label: '30 minutes' }
+]
 
 export default function AccountsPage() {
-  const [activeTab, setActiveTab] = useState<'profile' | 'slots'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'schedules'>('profile')
   const [doctor, setDoctor] = useState<Doctor | null>(null)
+  const [recurringSchedules, setRecurringSchedules] = useState<RecurringSchedule[]>([])
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([])
   const router = useRouter()
 
   const profileForm = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema)
   })
 
-  const slotForm = useForm<TimeSlotForm>({
-    resolver: zodResolver(timeSlotSchema)
+  const scheduleForm = useForm<ScheduleForm>({
+    resolver: zodResolver(scheduleSchema),
+    defaultValues: {
+      interval_minutes: 10
+    }
   })
 
   useEffect(() => {
-    const loadDoctorData = async () => {
+    const loadData = async () => {
       await fetchDoctorData()
     }
-    loadDoctorData()
+    loadData()
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'slots') {
+    if (activeTab === 'schedules') {
+      fetchRecurringSchedules()
       fetchTimeSlots()
     }
   }, [activeTab])
@@ -86,7 +124,6 @@ export default function AccountsPage() {
       if (doctorError) {
         console.error('Doctor fetch error:', doctorError)
         
-        // If no row found, create a basic doctor record
         if (doctorError.code === 'PGRST116') {
           const { data: newDoctor, error: createError } = await supabase
             .from('doctors')
@@ -116,7 +153,6 @@ export default function AccountsPage() {
 
       setDoctor(doctorData)
 
-      // Populate form with existing data
       if (doctorData) {
         profileForm.reset({
           full_name: doctorData.full_name || '',
@@ -134,6 +170,28 @@ export default function AccountsPage() {
     }
   }
 
+  const fetchRecurringSchedules = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: schedulesData, error: schedulesError } = await supabase
+        .from('recurring_schedules')
+        .select('*')
+        .eq('doctor_id', user.id)
+        .order('created_at', { ascending: true })
+
+      if (schedulesError) {
+        console.error('Schedules fetch error:', schedulesError)
+        return
+      }
+
+      setRecurringSchedules(schedulesData || [])
+    } catch (error) {
+      console.error('Error fetching recurring schedules:', error)
+    }
+  }
+
   const fetchTimeSlots = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -143,7 +201,9 @@ export default function AccountsPage() {
         .from('time_slots')
         .select('*')
         .eq('doctor_id', user.id)
+        .gte('slot_date', new Date().toISOString().split('T')[0])
         .order('slot_date', { ascending: true })
+        .order('start_time', { ascending: true })
 
       if (slotsError) {
         console.error('Slots fetch error:', slotsError)
@@ -181,7 +241,6 @@ export default function AccountsPage() {
         setMessage('Profile updated successfully!')
         setDoctor(prev => prev ? { ...prev, ...data, profile_completed: true } : null)
         
-        // If this was first-time profile setup, redirect to dashboard after delay
         if (!doctor?.profile_completed) {
           setTimeout(() => router.push('/dashboard'), 1500)
         }
@@ -194,8 +253,8 @@ export default function AccountsPage() {
     }
   }
 
-  const onSlotSubmit = async (data: TimeSlotForm) => {
-    setIsLoading(true)
+  const onScheduleSubmit = async (data: ScheduleForm) => {
+    setIsSaving(true)
     setMessage('')
     setError('')
 
@@ -203,50 +262,108 @@ export default function AccountsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // Check if at least one weekday is selected
+      if (selectedWeekdays.length === 0) {
+        setError('Please select at least one day')
+        setIsSaving(false)
+        return
+      }
+
+      // Validate end time is after start time
+      if (data.start_time >= data.end_time) {
+        setError('End time must be after start time')
+        setIsSaving(false)
+        return
+      }
+
       const { error: insertError } = await supabase
-        .from('time_slots')
+        .from('recurring_schedules')
         .insert({
           doctor_id: user.id,
-          slot_date: data.date,
-          start_time: data.startTime,
-          end_time: data.endTime,
-          is_available: true,
-          is_booked: false
+          name: data.name,
+          weekdays: selectedWeekdays,
+          start_time: data.start_time,
+          end_time: data.end_time,
+          interval_minutes: data.interval_minutes,
+          is_active: true
         })
 
       if (insertError) {
-        setError('Error adding time slot')
+        setError('Error adding schedule')
         console.error(insertError)
       } else {
-        setMessage('Time slot added successfully!')
-        slotForm.reset()
-        fetchTimeSlots()
+        setMessage('Schedule added successfully!')
+        scheduleForm.reset({
+          name: '',
+          start_time: '',
+          end_time: '',
+          interval_minutes: 10
+        })
+        setSelectedWeekdays([])
+        fetchRecurringSchedules()
       }
     } catch (error) {
-      console.error('Error adding time slot:', error)
+      console.error('Error adding schedule:', error)
       setError('Something went wrong')
     } finally {
-      setIsLoading(false)
+      setIsSaving(false)
     }
   }
 
-  const deleteSlot = async (slotId: string) => {
-    try {
-      const { error: deleteError } = await supabase
-        .from('time_slots')
-        .delete()
-        .eq('id', slotId)
+  const generateSlots = async () => {
+    setIsGenerating(true)
+    setMessage('')
+    setError('')
 
-      if (deleteError) {
-        console.error('Error deleting slot:', deleteError)
-        setError('Error deleting slot')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase.rpc('generate_slots_from_schedules', {
+        doctor_uuid: user.id,
+        days_ahead: 15
+      })
+
+      if (error) {
+        console.error('Error generating slots:', error)
+        setError('Failed to generate slots')
       } else {
+        setMessage(`Successfully generated ${data || 0} appointment slots for the next 15 days!`)
         fetchTimeSlots()
-        setMessage('Time slot deleted')
       }
     } catch (error) {
-      console.error('Error deleting slot:', error)
+      console.error('Error generating slots:', error)
+      setError('Something went wrong')
+    } finally {
+      setIsGenerating(false)
     }
+  }
+
+  const deleteSchedule = async (scheduleId: string) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('recurring_schedules')
+        .delete()
+        .eq('id', scheduleId)
+
+      if (deleteError) {
+        console.error('Error deleting schedule:', deleteError)
+        setError('Error deleting schedule')
+      } else {
+        fetchRecurringSchedules()
+        setMessage('Schedule deleted')
+      }
+    } catch (error) {
+      console.error('Error deleting schedule:', error)
+    }
+  }
+
+  const toggleWeekday = (weekday: number) => {
+    setSelectedWeekdays(prev => 
+      prev.includes(weekday) 
+        ? prev.filter(d => d !== weekday)
+        : [...prev, weekday].sort()
+    )
   }
 
   const copyBookingLink = () => {
@@ -259,6 +376,10 @@ export default function AccountsPage() {
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     window.location.href = '/'
+  }
+
+  const formatWeekdays = (weekdays: number[]) => {
+    return weekdays.map(d => WEEKDAYS.find(w => w.value === d)?.label).join(', ')
   }
 
   if (isLoading) {
@@ -289,7 +410,6 @@ export default function AccountsPage() {
                 onClick={() => {
                   setError('')
                   setActiveTab('profile')
-                  // Try to continue anyway - maybe we can create the profile
                 }} 
                 className="w-full"
               >
@@ -352,7 +472,7 @@ export default function AccountsPage() {
         {/* Page Header */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Account Settings</h2>
-          <p className="text-gray-600">Manage your profile and appointment slots</p>
+          <p className="text-gray-600">Manage your profile and appointment schedules</p>
         </div>
 
         {/* Tab Navigation */}
@@ -371,15 +491,15 @@ export default function AccountsPage() {
                 Profile Information
               </button>
               <button
-                onClick={() => setActiveTab('slots')}
+                onClick={() => setActiveTab('schedules')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'slots'
+                  activeTab === 'schedules'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 <Clock className="w-5 h-5 inline mr-2" />
-                Time Slots
+                Appointment Schedules
               </button>
             </nav>
           </div>
@@ -499,65 +619,107 @@ export default function AccountsPage() {
           </Card>
         )}
 
-        {/* Time Slots Tab */}
-        {activeTab === 'slots' && (
+        {/* Schedules Tab */}
+        {activeTab === 'schedules' && (
           <div className="space-y-8">
-            {/* Add New Slot Form */}
+            {/* Add New Schedule Form */}
             <Card>
               <CardHeader>
-                <CardTitle>Add Time Slot</CardTitle>
-                <p className="text-sm text-gray-600">Create new appointment slots for patients to book</p>
+                <CardTitle>Create Recurring Schedule</CardTitle>
+                <p className="text-sm text-gray-600">Set up your weekly appointment schedule with custom time ranges and intervals</p>
               </CardHeader>
               <CardContent>
-                <form onSubmit={slotForm.handleSubmit(onSlotSubmit)} className="space-y-6">
+                <form onSubmit={scheduleForm.handleSubmit(onScheduleSubmit)} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Schedule Name *</Label>
+                    <Input
+                      id="name"
+                      {...scheduleForm.register('name')}
+                      placeholder="e.g., Morning Hours, Evening Clinic"
+                    />
+                    {scheduleForm.formState.errors.name && (
+                      <p className="text-sm text-red-600">{scheduleForm.formState.errors.name.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Select Days *</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map(day => (
+                        <Button
+                          key={day.value}
+                          type="button"
+                          variant={selectedWeekdays.includes(day.value) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => toggleWeekday(day.value)}
+                          className="h-10 px-4"
+                        >
+                          {day.label}
+                        </Button>
+                      ))}
+                    </div>
+                    {error === 'Please select at least one day' && (
+                      <p className="text-sm text-red-600">{error}</p>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
-                      <Label htmlFor="date">Date *</Label>
+                      <Label htmlFor="start_time">Start Time *</Label>
                       <Input
-                        id="date"
-                        type="date"
-                        {...slotForm.register('date')}
+                        id="start_time"
+                        type="time"
+                        {...scheduleForm.register('start_time')}
                       />
-                      {slotForm.formState.errors.date && (
-                        <p className="text-sm text-red-600">{slotForm.formState.errors.date.message}</p>
+                      {scheduleForm.formState.errors.start_time && (
+                        <p className="text-sm text-red-600">{scheduleForm.formState.errors.start_time.message}</p>
                       )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="startTime">Start Time *</Label>
+                      <Label htmlFor="end_time">End Time *</Label>
                       <Input
-                        id="startTime"
+                        id="end_time"
                         type="time"
-                        {...slotForm.register('startTime')}
+                        {...scheduleForm.register('end_time')}
                       />
-                      {slotForm.formState.errors.startTime && (
-                        <p className="text-sm text-red-600">{slotForm.formState.errors.startTime.message}</p>
+                      {scheduleForm.formState.errors.end_time && (
+                        <p className="text-sm text-red-600">{scheduleForm.formState.errors.end_time.message}</p>
                       )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="endTime">End Time *</Label>
-                      <Input
-                        id="endTime"
-                        type="time"
-                        {...slotForm.register('endTime')}
-                      />
-                      {slotForm.formState.errors.endTime && (
-                        <p className="text-sm text-red-600">{slotForm.formState.errors.endTime.message}</p>
+                      <Label htmlFor="interval">Appointment Interval *</Label>
+                      <select
+                        {...scheduleForm.register('interval_minutes', { valueAsNumber: true })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                      >
+                        {INTERVAL_OPTIONS.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      {scheduleForm.formState.errors.interval_minutes && (
+                        <p className="text-sm text-red-600">{scheduleForm.formState.errors.interval_minutes.message}</p>
                       )}
                     </div>
                   </div>
 
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? (
+                  <Button 
+                    type="submit" 
+                    disabled={isSaving || selectedWeekdays.length === 0}
+                    className="w-full md:w-auto"
+                  >
+                    {isSaving ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Adding...
+                        Adding Schedule...
                       </>
                     ) : (
                       <>
                         <Plus className="w-4 h-4 mr-2" />
-                        Add Slot
+                        Add Schedule
                       </>
                     )}
                   </Button>
@@ -565,46 +727,124 @@ export default function AccountsPage() {
               </CardContent>
             </Card>
 
-            {/* Existing Slots */}
+            {/* Existing Schedules */}
             <Card>
               <CardHeader>
-                <CardTitle>Your Time Slots</CardTitle>
-                <p className="text-sm text-gray-600">Manage your existing appointment slots</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Your Recurring Schedules</CardTitle>
+                    <p className="text-sm text-gray-600">Manage your weekly appointment schedules</p>
+                  </div>
+                  <Button
+                    onClick={generateSlots}
+                    disabled={isGenerating || recurringSchedules.length === 0}
+                    variant="outline"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Generate Slots (15 days)
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
-                {timeSlots.length > 0 ? (
-                  <div className="space-y-3">
-                    {timeSlots.map((slot) => (
-                      <div key={slot.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-sm">
-                            <p className="font-medium text-gray-900">{slot.slot_date}</p>
-                            <p className="text-gray-600">{slot.start_time} - {slot.end_time}</p>
+                {recurringSchedules.length > 0 ? (
+                  <div className="space-y-4">
+                    {recurringSchedules.map((schedule) => (
+                      <div key={schedule.id} className="p-4 border border-gray-200 rounded-lg">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h3 className="font-medium text-gray-900">{schedule.name}</h3>
+                              <Badge variant={schedule.is_active ? "default" : "secondary"}>
+                                {schedule.is_active ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                              <div>
+                                <span className="font-medium">Days:</span> {formatWeekdays(schedule.weekdays)}
+                              </div>
+                              <div>
+                                <span className="font-medium">Time:</span> {schedule.start_time} - {schedule.end_time}
+                              </div>
+                              <div>
+                                <span className="font-medium">Interval:</span> {schedule.interval_minutes} minutes
+                              </div>
+                            </div>
                           </div>
-                          <Badge variant={slot.is_booked ? "destructive" : "secondary"}>
-                            {slot.is_booked ? 'Booked' : 'Available'}
-                          </Badge>
+                          <Button
+                            onClick={() => deleteSchedule(schedule.id)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                        <Button
-                          onClick={() => deleteSlot(slot.id)}
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="text-center py-8">
                     <Clock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 mb-2">No time slots created yet</p>
-                    <p className="text-sm text-gray-400">Add your first time slot above to start accepting bookings</p>
+                    <p className="text-gray-500 mb-2">No recurring schedules created yet</p>
+                    <p className="text-sm text-gray-400">Create your first schedule above to start generating appointment slots automatically</p>
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* Generated Slots Preview */}
+            {timeSlots.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Generated Appointment Slots</CardTitle>
+                  <p className="text-sm text-gray-600">Preview of your upcoming appointment slots (next 15 days)</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {timeSlots.slice(0, 20).map((slot) => (
+                      <div key={slot.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center space-x-4">
+                          <div className="text-sm">
+                            <p className="font-medium text-gray-900">
+                              {new Date(slot.slot_date + 'T00:00:00').toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </p>
+                            <p className="text-gray-600">{slot.start_time} - {slot.end_time}</p>
+                          </div>
+                          <Badge variant={slot.is_booked ? "destructive" : "secondary"}>
+                            {slot.is_booked ? 'Booked' : 'Available'}
+                          </Badge>
+                        </div>
+                        {slot.duration_minutes && (
+                          <div className="text-xs text-gray-500">
+                            {slot.duration_minutes} min
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {timeSlots.length > 20 && (
+                      <div className="text-center py-2">
+                        <p className="text-sm text-gray-500">
+                          Showing 20 of {timeSlots.length} slots
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>
