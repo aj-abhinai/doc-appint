@@ -63,7 +63,7 @@ export default function LandingPage() {
           <div className="bg-white rounded-xl shadow-lg p-6 mb-16 max-w-md mx-auto border-2 border-gray-100">
             <p className="text-sm text-gray-500 mb-2">Your booking page will be:</p>
             <div className="bg-gray-50 rounded-lg px-4 py-3 font-mono text-[#db2777] font-semibold">
-              quickslot.com/dr-smith
+              quick-doc-slot.vercel.app/dr-smith
             </div>
           </div>
         </div>

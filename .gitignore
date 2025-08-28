@@ -41,3 +41,4 @@ yarn-error.log*
 next-env.d.ts
 # Ignore local notes and todos
 notes.md
+todo.md
