@@ -224,7 +224,7 @@ export default function SignupPage() {
                   <p className="text-sm text-red-600">{errors.username.message}</p>
                 )}
                 <p className="text-xs text-gray-500">
-                  Your booking page will be: quickslot.com/{watch('username') || 'your-username'}
+                  Your booking page will be: quick-doc-slot.vercel.app/{watch('username') || 'your-username'}
                 </p>
               </div>
 
