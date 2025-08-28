@@ -49,11 +49,48 @@ export default function SigninPage() {
 
       if (authData.user) {
         // Check if profile is completed
-        const { data: doctorData } = await supabase
+        const { data: doctorData, error: doctorError } = await supabase
           .from('doctors')
-          .select('profile_completed')
+          .select('profile_completed, username')
           .eq('id', authData.user.id)
           .single()
+
+        if (doctorError) {
+          console.error('Error checking profile:', doctorError)
+          
+          // If no doctor record exists, create one (user verified email but didn't complete signup)
+          if (doctorError.code === 'PGRST116') {
+            // Need to get username from user metadata or create one
+            const username = authData.user.user_metadata?.username || 
+                           authData.user.email?.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-') || 
+                           `user-${authData.user.id.slice(0, 8)}`
+
+            const { error: createError } = await supabase
+              .from('doctors')
+              .insert({
+                id: authData.user.id,
+                email: authData.user.email || '',
+                username: username,
+                tier: 'free',
+                profile_completed: false
+              })
+
+            if (createError) {
+              console.error('Error creating doctor record:', createError)
+              setError('Account setup incomplete. Please contact support.')
+              setIsLoading(false)
+              return
+            }
+
+            // New account, go to complete profile
+            router.push('/accounts')
+            return
+          }
+          
+          setError('Unable to access account. Please try again.')
+          setIsLoading(false)
+          return
+        }
 
         // Redirect based on profile completion
         if (doctorData?.profile_completed) {

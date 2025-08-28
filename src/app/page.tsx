@@ -54,7 +54,7 @@ export default function LandingPage() {
               href="/signin"
               className="border-2 border-[#db2777] text-[#db2777] hover:bg-[#db2777] hover:text-white px-8 py-4 rounded-lg text-lg font-medium transition-all"
             >
-              I'm Already a User
+                  I&apos;m Already a User
             </Link>
           </div>
 
@@ -113,7 +113,7 @@ export default function LandingPage() {
         {/* Pricing Preview */}
         <div className="text-center mb-20">
           <h3 className="text-3xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h3>
-          <p className="text-gray-600 mb-8">Start free, upgrade when you're ready</p>
+          <p className="text-gray-600 mb-8">Start free, upgrade when you&apos;re ready</p>
           
           <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
             {/* Free Tier */}
@@ -175,7 +175,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 border-t border-gray-200 mt-20">
         <div className="text-center text-gray-600">
-          <p>&copy; 2024 Quick Slot. Made with ❤️ for doctors who care.</p>
+          <p>&copy; 2025 Quick Slot. Made with ❤️ for doctors who care.</p>
         </div>
       </footer>
     </div>

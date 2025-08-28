@@ -9,6 +9,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Calendar, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 const signupSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -25,6 +30,7 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const router = useRouter()
 
   const {
@@ -53,14 +59,22 @@ export default function SignupPage() {
   const onSubmit = async (data: SignupForm) => {
     setIsLoading(true)
     setError('')
+    setMessage('')
 
     try {
-      // Check if username is already taken
-      const { data: existingUser } = await supabase
+      // Check if username is already taken first
+      const { data: existingUser, error: checkError } = await supabase
         .from('doctors')
         .select('username')
         .eq('username', data.username)
         .single()
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking username:', checkError)
+        setError('Unable to verify username availability. Please try again.')
+        setIsLoading(false)
+        return
+      }
 
       if (existingUser) {
         setError('Username is already taken. Please choose another one.')
@@ -80,30 +94,57 @@ export default function SignupPage() {
       })
 
       if (authError) {
+        console.error('Auth error:', authError)
         setError(authError.message)
         setIsLoading(false)
         return
       }
 
       if (authData.user) {
-        // Insert into doctors table
-        const { error: dbError } = await supabase
-          .from('doctors')
-          .insert({
-            id: authData.user.id,
-            email: data.email,
-            username: data.username,
-            tier: 'free',
-            profile_completed: false
-          })
-
-        if (dbError) {
-          console.error('Database error:', dbError)
-          setError('Failed to create account. Please try again.')
+        // Check if user needs email confirmation
+        if (!authData.user.email_confirmed_at) {
+          setError('')
+          setMessage(`We've sent a verification email to ${data.email}. Please check your inbox and click the verification link to complete your signup.`)
           setIsLoading(false)
           return
         }
 
+        // If email is already confirmed, create doctor record
+        const doctorData = {
+          id: authData.user.id,
+          email: data.email,
+          username: data.username,
+          tier: 'free' as const,
+          profile_completed: false
+        }
+
+        console.log('Attempting to insert doctor data:', doctorData)
+
+        const { data: insertedData, error: dbError } = await supabase
+          .from('doctors')
+          .insert(doctorData)
+          .select()
+
+        if (dbError) {
+          console.error('Database error details:', {
+            message: dbError.message,
+            code: dbError.code,
+            details: dbError.details,
+            hint: dbError.hint
+          })
+          
+          // If the error is about the user already existing, try to sign them in instead
+          if (dbError.code === '23505') { // unique violation
+            setError('An account with this email already exists. Try signing in instead.')
+          } else {
+            setError(`Failed to create account: ${dbError.message || 'Unknown database error'}`)
+          }
+          setIsLoading(false)
+          return
+        }
+
+        console.log('Successfully created doctor record:', insertedData)
+        
         // Redirect to accounts page to complete profile
         router.push('/accounts')
       }
@@ -131,110 +172,117 @@ export default function SignupPage() {
         </div>
 
         {/* Signup Form */}
-        <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-100">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-              {error}
-            </div>
-          )}
+        <Card className="shadow-lg border border-gray-100">
+          <CardContent className="p-8">
+            {error && (
+              <Alert variant="destructive" className="mb-6">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Email Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                {...register('email')}
-                onChange={(e) => {
-                  register('email').onChange(e)
-                  handleEmailChange(e)
-                }}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#db2777] focus:border-[#db2777] transition-colors"
-                placeholder="doctor@example.com"
-              />
-              {errors.email && (
-                <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-              )}
-            </div>
+            {message && (
+              <Alert className="mb-6">
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            )}
 
-            {/* Username Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Username (Permanent)
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  {...register('username')}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#db2777] focus:border-[#db2777] transition-colors"
-                  placeholder="dr-smith"
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* Email Field */}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  {...register('email')}
+                  onChange={(e) => {
+                    register('email').onChange(e)
+                    handleEmailChange(e)
+                  }}
+                  placeholder="doctor@example.com"
                 />
-                <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                  <span className="text-xs text-gray-500">.quickslot.com</span>
-                </div>
+                {errors.email && (
+                  <p className="text-sm text-red-600">{errors.email.message}</p>
+                )}
               </div>
-              {errors.username && (
-                <p className="mt-1 text-sm text-red-600">{errors.username.message}</p>
-              )}
-              <p className="mt-1 text-xs text-gray-500">
-                Your booking page will be: quickslot.com/{watch('username') || 'your-username'}
+
+              {/* Username Field */}
+              <div className="space-y-2">
+                <Label htmlFor="username">Username (Permanent)</Label>
+                <div className="relative">
+                  <Input
+                    id="username"
+                    type="text"
+                    {...register('username')}
+                    placeholder="dr-smith"
+                    className="pr-28"
+                  />
+                  <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                    <span className="text-xs text-gray-500">.quickslot.com</span>
+                  </div>
+                </div>
+                {errors.username && (
+                  <p className="text-sm text-red-600">{errors.username.message}</p>
+                )}
+                <p className="text-xs text-gray-500">
+                  Your booking page will be: quickslot.com/{watch('username') || 'your-username'}
+                </p>
+              </div>
+
+              {/* Password Field */}
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    {...register('password')}
+                    placeholder="Enter your password"
+                    className="pr-12"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 px-3 py-0 h-full hover:bg-transparent"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </Button>
+                </div>
+                {errors.password && (
+                  <p className="text-sm text-red-600">{errors.password.message}</p>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full"
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Creating Account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
+              </Button>
+            </form>
+
+            {/* Sign In Link */}
+            <div className="mt-6 text-center">
+              <p className="text-gray-600">
+                Already have an account?{' '}
+                <Link href="/signin" className="text-primary hover:underline font-medium">
+                  Sign In
+                </Link>
               </p>
             </div>
-
-            {/* Password Field */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  {...register('password')}
-                  className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#db2777] focus:border-[#db2777] transition-colors"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-[#db2777] hover:bg-[#be185d] disabled:bg-gray-400 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                  Creating Account...
-                </>
-              ) : (
-                'Create Account'
-              )}
-            </button>
-          </form>
-
-          {/* Sign In Link */}
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
-              Already have an account?{' '}
-              <Link href="/signin" className="text-[#db2777] hover:underline font-medium">
-                Sign In
-              </Link>
-            </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Free Trial Notice */}
         <div className="mt-6 text-center">
