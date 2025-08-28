@@ -1,6 +1,7 @@
 // src/app/page.tsx
 import Link from 'next/link'
 import { Calendar, Clock, Users, Shield } from 'lucide-react'
+import { VersionFooter } from '@/components/version-footer'
 
 export default function LandingPage() {
   return (
@@ -54,7 +55,7 @@ export default function LandingPage() {
               href="/signin"
               className="border-2 border-[#db2777] text-[#db2777] hover:bg-[#db2777] hover:text-white px-8 py-4 rounded-lg text-lg font-medium transition-all"
             >
-                  I&apos;m Already a User
+              I&apos;m Already a User
             </Link>
           </div>
 
@@ -105,13 +106,13 @@ export default function LandingPage() {
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-3">Secure & Reliable</h3>
             <p className="text-gray-600">
-              Your data is safe with us. Protected by secure infrastructure.
+              Your data is safe with us. HIPAA compliant and secure infrastructure.
             </p>
           </div>
         </div>
 
         {/* Pricing Preview */}
-<div className="text-center mb-20">
+        <div className="text-center mb-20">
   <h3 className="text-3xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h3>
   <p className="text-gray-600 mb-8">We&apos;re in launch mode — all plans are currently free!</p>
   
@@ -159,6 +160,7 @@ export default function LandingPage() {
     </div>
   </div>
 </div>
+
         {/* CTA Section */}
         <div className="text-center bg-[#db2777] rounded-2xl p-12 text-white">
           <h3 className="text-3xl font-bold mb-4">Ready to Get Started?</h3>
@@ -175,15 +177,7 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="container mx-auto px-4 py-8 border-t border-gray-200 mt-20">
-        <div className="text-center text-gray-600">
-          <p>&copy; 2025 Quick Slot. Made with ❤️ for doctors who care.</p>
-          <p className="text-xs text-gray-300 mt-2">
-  Built with curiosity — <a href="https://aj-abhinai.github.io/inverted-dodo.github.io/" target="_blank" rel="noopener noreferrer" className="hover:underline">Inverted Dodo</a>
-</p>
-
-        </div>
-      </footer>
+      <VersionFooter />
     </div>
   )
 }

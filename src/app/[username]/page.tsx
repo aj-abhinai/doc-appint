@@ -55,15 +55,7 @@ export default function PatientBookingPage() {
     resolver: zodResolver(bookingSchema)
   })
 
-  useEffect(() => {
-    if (username) {
-      const loadData = async () => {
-        await fetchDoctorAndSlots()
-      }
-      loadData()
-    }
-  }, [username])
-
+  // Move fetchDoctorAndSlots to component scope so it can be called from anywhere
   const fetchDoctorAndSlots = async () => {
     try {
       setIsLoading(true)
@@ -133,6 +125,12 @@ export default function PatientBookingPage() {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (username) {
+      fetchDoctorAndSlots()
+    }
+  }, [username])
 
   const onSubmit = async (data: BookingForm) => {
     if (!selectedSlot || !doctor) return

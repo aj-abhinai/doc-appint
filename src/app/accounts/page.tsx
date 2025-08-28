@@ -367,7 +367,7 @@ export default function AccountsPage() {
   }
 
   const copyBookingLink = () => {
-    const link = `https://quickslot.com/${doctor?.username}`
+    const link = `${process.env.NEXT_PUBLIC_APP_URL}/${doctor?.username}`
     navigator.clipboard.writeText(link)
     setLinkCopied(true)
     setTimeout(() => setLinkCopied(false), 2000)
@@ -584,7 +584,7 @@ export default function AccountsPage() {
                     <Label className="text-sm font-medium text-gray-700">Your Booking Link</Label>
                     <div className="flex items-center space-x-2 mt-2">
                       <Input
-                        value={`https://quickslot.com/${doctor.username}`}
+                        value={`${process.env.NEXT_PUBLIC_APP_URL}/${doctor.username}`}
                         readOnly
                         className="flex-1 bg-white"
                       />

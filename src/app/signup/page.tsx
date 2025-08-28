@@ -217,7 +217,7 @@ export default function SignupPage() {
                     className="pr-28"
                   />
                   <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                    <span className="text-xs text-gray-500">.quickslot.com</span>
+                    <span className="text-xs text-gray-500">quick-doc-slot.vercel.app</span>
                   </div>
                 </div>
                 {errors.username && (
@@ -287,7 +287,7 @@ export default function SignupPage() {
         {/* Free Trial Notice */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
-            🎉 Free for 1 month, then ₹499/month. Cancel anytime.
+            🎉 Free for 1 month. Cancel anytime.
           </p>
         </div>
       </div>
