@@ -3,8 +3,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { APP_VERSION } from '@/lib/version'
 
-const VERSION = '1.0.0-beta'
+const VERSION = APP_VERSION
 const BUILD_DATE = new Date().toLocaleDateString()
 export function VersionFooter() {
   const [showDetails, setShowDetails] = useState(false)

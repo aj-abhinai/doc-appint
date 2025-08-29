@@ -73,10 +73,17 @@ export default function AccountsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [generationDays, setGenerationDays] = useState(15)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([])
+  const [showSingleSlotForm, setShowSingleSlotForm] = useState(false)
+  const [singleSlotForm, setSingleSlotForm] = useState({
+    date: '',
+    startTime: '',
+    endTime: ''
+  })
   const router = useRouter()
 
   const profileForm = useForm<ProfileForm>({
@@ -321,14 +328,14 @@ export default function AccountsPage() {
 
       const { data, error } = await supabase.rpc('generate_slots_from_schedules', {
         doctor_uuid: user.id,
-        days_ahead: 15
+        days_ahead: generationDays
       })
 
       if (error) {
         console.error('Error generating slots:', error)
         setError('Failed to generate slots')
       } else {
-        setMessage(`Successfully generated ${data || 0} appointment slots for the next 15 days!`)
+        setMessage(`Successfully generated ${data || 0} appointment slots for the next ${generationDays} days!`)
         fetchTimeSlots()
       }
     } catch (error) {
@@ -355,6 +362,97 @@ export default function AccountsPage() {
       }
     } catch (error) {
       console.error('Error deleting schedule:', error)
+    }
+  }
+
+  const handleSingleSlotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setMessage('')
+    setError('')
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      if (singleSlotForm.startTime >= singleSlotForm.endTime) {
+        setError('End time must be after start time')
+        setIsLoading(false)
+        return
+      }
+
+      const { error } = await supabase
+        .from('time_slots')
+        .insert({
+          doctor_id: user.id,
+          slot_date: singleSlotForm.date,
+          start_time: singleSlotForm.startTime,
+          end_time: singleSlotForm.endTime,
+          is_available: true,
+          is_booked: false
+        })
+
+      if (error) {
+        setError('Error adding slot')
+        console.error(error)
+      } else {
+        setMessage('Single slot added successfully!')
+        setSingleSlotForm({ date: '', startTime: '', endTime: '' })
+        setShowSingleSlotForm(false)
+        fetchTimeSlots()
+      }
+    } catch (error) {
+      console.error('Error adding single slot:', error)
+      setError('Something went wrong')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const deleteIndividualSlot = async (slotId: string) => {
+    try {
+      const { error } = await supabase
+        .from('time_slots')
+        .delete()
+        .eq('id', slotId)
+
+      if (error) {
+        console.error('Error deleting slot:', error)
+        setError('Error deleting slot')
+      } else {
+        fetchTimeSlots()
+        setMessage('Slot deleted successfully')
+      }
+    } catch (error) {
+      console.error('Error deleting slot:', error)
+    }
+  }
+
+  const clearAllSlots = async () => {
+    if (!window.confirm('Are you sure you want to delete all available slots? This cannot be undone.')) {
+      return
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from('time_slots')
+        .delete()
+        .eq('doctor_id', user.id)
+        .eq('is_booked', false)
+
+      if (error) {
+        console.error('Error clearing slots:', error)
+        setError('Error clearing slots')
+      } else {
+        fetchTimeSlots()
+        setMessage('All available slots cleared successfully')
+      }
+    } catch (error) {
+      console.error('Error clearing slots:', error)
+      setError('Something went wrong')
     }
   }
 
@@ -658,8 +756,8 @@ export default function AccountsPage() {
                         </Button>
                       ))}
                     </div>
-                    {error === 'Please select at least one day' && (
-                      <p className="text-sm text-red-600">{error}</p>
+                    {scheduleForm.formState.errors.weekdays && (
+                      <p className="text-sm text-red-600">{scheduleForm.formState.errors.weekdays.message}</p>
                     )}
                   </div>
 
@@ -735,23 +833,34 @@ export default function AccountsPage() {
                     <CardTitle>Your Recurring Schedules</CardTitle>
                     <p className="text-sm text-gray-600">Manage your weekly appointment schedules</p>
                   </div>
-                  <Button
-                    onClick={generateSlots}
-                    disabled={isGenerating || recurringSchedules.length === 0}
-                    variant="outline"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Generate Slots (15 days)
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex items-center space-x-2">
+                    <select
+                      value={generationDays}
+                      onChange={(e) => setGenerationDays(parseInt(e.target.value))}
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    >
+                      <option value={7}>Next 7 days</option>
+                      <option value={15}>Next 15 days</option>
+                      <option value={30}>Next 30 days</option>
+                    </select>
+                    <Button
+                      onClick={generateSlots}
+                      disabled={isGenerating || recurringSchedules.length === 0}
+                      variant="outline"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Generate Slots
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -805,12 +914,89 @@ export default function AccountsPage() {
             {timeSlots.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Generated Appointment Slots</CardTitle>
-                  <p className="text-sm text-gray-600">Preview of your upcoming appointment slots (next 15 days)</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Generated Appointment Slots</CardTitle>
+                      <p className="text-sm text-gray-600">Manage your upcoming appointment slots</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        onClick={() => setShowSingleSlotForm(!showSingleSlotForm)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Single Slot
+                      </Button>
+                      <Button
+                        onClick={clearAllSlots}
+                        variant="destructive"
+                        size="sm"
+                        disabled={isGenerating}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Clear All
+                      </Button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
+                  {/* Single Slot Creation Form */}
+                  {showSingleSlotForm && (
+                    <Card className="mb-6 bg-blue-50 border-blue-200">
+                      <CardContent className="p-4">
+                        <h4 className="font-medium text-gray-900 mb-3">Add Single Appointment Slot</h4>
+                        <form onSubmit={handleSingleSlotSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label htmlFor="single_date">Date</Label>
+                            <Input
+                              id="single_date"
+                              type="date"
+                              value={singleSlotForm.date}
+                              onChange={(e) => setSingleSlotForm(prev => ({ ...prev, date: e.target.value }))}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="single_start">Start Time</Label>
+                            <Input
+                              id="single_start"
+                              type="time"
+                              value={singleSlotForm.startTime}
+                              onChange={(e) => setSingleSlotForm(prev => ({ ...prev, startTime: e.target.value }))}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="single_end">End Time</Label>
+                            <Input
+                              id="single_end"
+                              type="time"
+                              value={singleSlotForm.endTime}
+                              onChange={(e) => setSingleSlotForm(prev => ({ ...prev, endTime: e.target.value }))}
+                              required
+                            />
+                          </div>
+                          <div className="flex items-end space-x-2">
+                            <Button type="submit" size="sm" disabled={isGenerating}>
+                              Add Slot
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setShowSingleSlotForm(false)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </form>
+                      </CardContent>
+                    </Card>
+                  )}
+
                   <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {timeSlots.slice(0, 20).map((slot) => (
+                    {timeSlots.slice(0, 50).map((slot) => (
                       <div key={slot.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex items-center space-x-4">
                           <div className="text-sm">
@@ -827,17 +1013,30 @@ export default function AccountsPage() {
                             {slot.is_booked ? 'Booked' : 'Available'}
                           </Badge>
                         </div>
-                        {slot.duration_minutes && (
-                          <div className="text-xs text-gray-500">
-                            {slot.duration_minutes} min
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-2">
+                          {slot.duration_minutes && (
+                            <div className="text-xs text-gray-500">
+                              {slot.duration_minutes} min
+                            </div>
+                          )}
+                          {!slot.is_booked && (
+                            <Button
+                              onClick={() => deleteIndividualSlot(slot.id)}
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                              title="Delete this slot"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
-                    {timeSlots.length > 20 && (
+                    {timeSlots.length > 50 && (
                       <div className="text-center py-2">
                         <p className="text-sm text-gray-500">
-                          Showing 20 of {timeSlots.length} slots
+                          Showing 50 of {timeSlots.length} slots
                         </p>
                       </div>
                     )}

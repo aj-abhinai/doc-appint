@@ -1,7 +1,24 @@
 // src/lib/version.ts
-export const APP_VERSION = '1.0.0-beta'
+export const APP_VERSION = '1.0.2-beta'
 
 export const VERSION_CHANGELOG = {
+  '1.0.2-beta': {
+    date: '2025-12-29',
+    changes: [
+      'Enhanced slot management with individual slot control',
+      'Flexible generation options (7/15/30 days)',
+      'Add single appointments without affecting recurring schedules',
+      'Improved slot deletion with booking protection'
+    ]
+  },
+  '1.0.1-beta': {
+    date: '2025-12-29',
+    changes: [
+      'Fixed email verification callback flow',
+      'Improved error handling and debugging',
+      'Enhanced auth workflow stability'
+    ]
+  },
   '1.0.0-beta': {
     date: '2025-12-28',
     changes: [
@@ -13,7 +30,7 @@ export const VERSION_CHANGELOG = {
       'Mobile-responsive design',
       'Complete appointment workflow'
     ]
-  },
+  }
 }
 
 export const getBuildInfo = () => ({
