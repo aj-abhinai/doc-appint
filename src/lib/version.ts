@@ -3,7 +3,7 @@ export const APP_VERSION = '1.0.0-beta'
 
 export const VERSION_CHANGELOG = {
   '1.0.0-beta': {
-    date: '2024-12-28',
+    date: '2025-12-28',
     changes: [
       'Initial beta release',
       'Doctor registration and profile management',
