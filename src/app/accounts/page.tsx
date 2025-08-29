@@ -102,6 +102,8 @@ export default function AccountsPage() {
       await fetchDoctorData()
     }
     loadData()
+  // We intentionally run this once on mount. fetchDoctorData is stable for our usage here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -756,8 +758,8 @@ export default function AccountsPage() {
                         </Button>
                       ))}
                     </div>
-                    {scheduleForm.formState.errors.weekdays && (
-                      <p className="text-sm text-red-600">{scheduleForm.formState.errors.weekdays.message}</p>
+                    {selectedWeekdays.length === 0 && scheduleForm.formState.isSubmitted && (
+                      <p className="text-sm text-red-600">Please select at least one day</p>
                     )}
                   </div>
 
@@ -839,9 +841,10 @@ export default function AccountsPage() {
                       onChange={(e) => setGenerationDays(parseInt(e.target.value))}
                       className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     >
+                      <option value={2}>Next 2 days</option>
+                      <option value={3}>Next 3 days</option>
                       <option value={7}>Next 7 days</option>
                       <option value={15}>Next 15 days</option>
-                      <option value={30}>Next 30 days</option>
                     </select>
                     <Button
                       onClick={generateSlots}
