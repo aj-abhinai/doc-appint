@@ -311,7 +311,7 @@ export default function DashboardPage() {
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">Your Booking Page</p>
-                    <p className="text-sm text-gray-600">quickslot.com/{doctor.username}</p>
+                    <p className="text-sm text-gray-600">{process.env.NEXT_PUBLIC_APP_URL?.replace('https://', '') || 'quick-doc-slot.vercel.app'}/{doctor.username}</p>
                   </div>
                 </div>
                 <button className="text-green-600 hover:text-green-700 text-sm font-medium">
